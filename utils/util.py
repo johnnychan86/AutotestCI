@@ -5,6 +5,7 @@ Created on 2014-2-27
 @author: juliochen
 '''
 import os
+import time
 import subprocess
 import platform
 import httplib
@@ -41,17 +42,30 @@ def get_device_state(device):
             return x.strip().split('\t')[1]
 
 def adb_runner(device, params='', stdout=subprocess.PIPE,
-               stderr=subprocess.PIPE, cmd='shell'):
+               stderr=subprocess.PIPE, cmd='shell', timeout=None):
     cmd = "adb -s %s %s %s" % (device, cmd, params)
     
     if platform.system() == 'Linux':
         sh = True
     else:
         sh = False
-    p = subprocess.Popen(cmd, shell=sh, stdout=stdout,
+    proc = subprocess.Popen(cmd, shell=sh, stdout=stdout,
                                  stderr=stderr)
-    stdout, stderr = p.communicate()
-    return (stdout, stderr)
+    
+    if timeout:
+        begin = time.time()
+        current = time.time()
+        while current < begin + timeout:
+            if proc.poll() is not None:
+                break
+            current = time.time()
+        else:
+            proc.terminate()
+            proc.wait()
+        return (proc.stdout.read(), proc.stderr.read())
+    else:
+        stdout, stderr = proc.communicate()
+        return (stdout, stderr)
 
 def make_monkey_cmd(cmd, device_store, stdout):
     cmd = '"%s > %s/%s 2>&1"' % (cmd, device_store, stdout)
