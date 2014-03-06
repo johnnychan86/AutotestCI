@@ -34,8 +34,8 @@ class RobotiumTask(Task):
         self.log_path = util.get_path(
             os.path.join('./logs/', time_stamp))
 
-    def clear_device_log(self):
-        res = util.adb_runner(self.param['device'], 'rm %s/*' % self.device_log_path)
+    def clear_device_log(self, pth):
+        res = util.adb_runner(self.param['device'], 'rm %s/*' % pth)
         
         if res[1]:
             logger.error(res[1])
@@ -88,7 +88,7 @@ class RobotiumTask(Task):
                 self.pull_logcat(self.param['device'],
                                  os.path.join(output, 'logcat'),
                                  'logcat.log.' + str(x + 1))
-            self.clear_device_log()
+            self.clear_device_log(self.device_log_path)
 
 
 
