@@ -11,7 +11,7 @@ import logging
 
 from utils import util
 
-logger = logging.getLogger('e')
+logger = logging.getLogger('E')
 
 class Task(object):
     device_log_path = '/mnt/sdcard/autotest'
