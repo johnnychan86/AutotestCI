@@ -22,7 +22,7 @@ class Task(object):
         self.param = param
         self.time_stamp = time_stamp
 
-    def run():
+    def run(self):
         print "Not implemented"
 
 class RobotiumTask(Task):
@@ -80,7 +80,7 @@ class RobotiumTask(Task):
             proc.terminate()
             proc.wait()
 
-            os.mkdir(os.path.join(output, 'logcat')
+            os.mkdir(os.path.join(output, 'logcat'))
             self.pull_logcat(self.param['device'], 
                              os.path.join(output, 'logcat'),
                              'logcat.log')
