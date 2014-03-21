@@ -15,7 +15,7 @@ class PackageError(Exception):
         return Exception.__str__(self) + self.msg
 
 class Apk(object):
-    def __init__(self, store_path, pkg_name, version=''):
+    def __init__(self, store_path, version=''):
         
         self.path = util.get_path(store_path)
         self.pkg_name = pkg_name
@@ -23,6 +23,9 @@ class Apk(object):
             self.version = version
         else:
             self.version = os.path.basename(self.path)
+        
+    def get_package_name(self, file_path):
+        pass
         
     def uninstall(self, device):
         cmd = "adb -s %s uninstall %s " % (device, self.pkg_name)
@@ -43,4 +46,8 @@ class Apk(object):
             #raise PackageError("Failed install package on %s" % d)
         
         return True
+    
+    def _load_manifest(self, path):
+        output = util.get_path("./res")
+        
         
