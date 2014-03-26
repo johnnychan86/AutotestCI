@@ -12,6 +12,7 @@ import httplib
 import sys
 import random
 
+ROOT = r"D:\workspace\AutoTestCI"
 root_path = os.path.abspath(os.path.dirname(sys.argv[0]))
 
 def get_path(pth):
@@ -21,7 +22,7 @@ def get_path(pth):
     else:
         r_path = pth
     
-    return os.path.normpath(os.path.join(root_path, r_path))
+    return os.path.normpath(os.path.join(ROOT, r_path))
 
 def load_devices():
     cmd = "adb start-server"
