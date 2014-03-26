@@ -6,6 +6,7 @@ Created on 2013-11-15
 '''
 import os
 import util
+import zipfile
 
 class PackageError(Exception):
     def __init__(self, msg):
@@ -18,7 +19,7 @@ class Apk(object):
     def __init__(self, store_path, version=''):
         
         self.path = util.get_path(store_path)
-        self.pkg_name = pkg_name
+#         self.pkg_name = pkg_name
         if version:
             self.version = version
         else:
@@ -47,7 +48,23 @@ class Apk(object):
         
         return True
     
-    def _load_manifest(self, path):
-        output = util.get_path("./res")
+    def _load_manifest(self):
+        output = util.get_path("./temp")
         
-        
+        manifest = ''
+        if os.path.isfile(self.path):
+            zip = zipfile.ZipFile(self.path)
+            zip.extract('AndroidManifest.xml', output)
+            manifest = os.path.join(output, 'AndroidManifest.xml')
+        if os.path.isfile(manifest):
+            cmd = "java -jar %s %s > %s" % \
+                  (util.get_path('./res/AXMLPrinter2.jar'),
+                   manifest, util.get_path('./temp/AndroidManifest_decoded.xml'))
+            os.popen(cmd)
+
+
+
+if __name__ == "__main__":
+    ap = Apk('./packages/weishi_2_2_0_test_20140225.apk', 'weishi_2_2_0_test_20140225')
+    ap._load_manifest()
+           
