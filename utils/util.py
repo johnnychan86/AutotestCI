@@ -12,7 +12,7 @@ import httplib
 import sys
 import random
 
-ROOT = r"D:\workspace\AutoTestCI"
+ROOT = r"/Users/ximinchen/Develop/AutotestCI"
 root_path = os.path.abspath(os.path.dirname(sys.argv[0]))
 
 def get_path(pth):

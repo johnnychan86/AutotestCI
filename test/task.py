@@ -16,11 +16,12 @@ logger = logging.getLogger('E')
 class Task(object):
     device_log_path = '/mnt/sdcard/autotest'
     
-    def __init__(self, param, time_stamp=''):
+    def __init__(self, param, time_stamp='', device):
         self.results = {}
         self.results['results'] = []
         self.param = param
         self.time_stamp = time_stamp
+        self.device = device
 
     def run(self):
         print "Not implemented"

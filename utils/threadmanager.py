@@ -21,7 +21,7 @@ class ThreadManager(object):
         
     def _recruitThreads(self, lst):
         for l in lst:
-            worker = Runner(self.work_q, self.resutl_q)
+            worker = Runner(self.work_q, self.resutl_q, device)
             self.workers.append(worker)
             
     def wait_for_complete(self):
@@ -52,10 +52,11 @@ class ThreadManager(object):
 class Runner(Thread):
     timeout = 2
     
-    def __init__(self, work_q, result_q):
+    def __init__(self, work_q, result_q, device):
         Thread.__init__(self)
         self.work_q = work_q
         self.result_q = result_q
+        self.device = device
         self.setDaemon(True)
         self.start()
 
