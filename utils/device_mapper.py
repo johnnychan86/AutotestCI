@@ -41,14 +41,16 @@ os_version = {'021WNP4C2B044626': '4.0.4',
       'c0090430a847010': '4.0.4'
       }
 
+
 def get_model(id):
-    if device.has_key(id):
+    if id in device:
         return device[id]
     else:
         return ''
-    
+
+
 def get_os(id):
-    if os_version.has_key(id):
+    if id in os_version:
         return os_version[id]
     else:
         return ''

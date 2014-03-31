@@ -68,7 +68,8 @@ class Apk(object):
         if os.path.isfile(manifest):
             cmd = "java -jar %s %s > %s" % \
                   (util.get_path('./res/AXMLPrinter2.jar'),
-                   manifest, util.get_path('./temp/AndroidManifest_decoded.xml'))
+                   manifest, 
+                   util.get_path('./temp/AndroidManifest_decoded.xml'))
             os.popen(cmd)
             return util.get_path('./temp/AndroidManifest_decoded.xml')
 
@@ -78,14 +79,14 @@ class Apk(object):
             return
         tree = ET.parse(xml)
         root = tree.getroot()
-        if root.attrib.has_key("package"):
+        if "package" in root.attrib:
             self.package = root.attrib['package']
         
         app = root.find('application')
         for activity in app.findall('activity'):
-            name = activity.attrib['{http://schemas.android.com/apk/res/android}name']
+            name = activity.attrib[
+                '{http://schemas.android.com/apk/res/android}name']
             self.activities.append(name.split('.')[-1])
-
 
 
 if __name__ == "__main__":
