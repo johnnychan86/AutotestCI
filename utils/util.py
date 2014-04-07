@@ -46,7 +46,7 @@ def adb_runner(device, params='', stdout=subprocess.PIPE,
                stderr=subprocess.PIPE, cmd='shell', timeout=None):
     cmd = "adb -s %s %s %s" % (device, cmd, params)
     
-    if platform.system() == 'Linux':
+    if platform.system() == 'Linux' or platform.system() == 'Dalwin':
         sh = True
     else:
         sh = False
@@ -63,6 +63,7 @@ def adb_runner(device, params='', stdout=subprocess.PIPE,
         else:
             proc.terminate()
             proc.wait()
+            print "adb command timeout"
         return (proc.stdout.read(), proc.stderr.read())
     else:
         stdout, stderr = proc.communicate()
@@ -75,8 +76,8 @@ def make_monkey_cmd(cmd, device_store, stdout):
 def make_instrument_cmd(device, suite, pkg_name):
     cs = '.'.join([pkg_name, suite])
     cmd = "adb -s %s shell am instrument -e class %s \
-    -w %s/android.test.InstrumentationTestRunner" % \
-    (device, cs, pkg_name)
+          -w %s/android.test.InstrumentationTestRunner" % \
+          (device, cs, pkg_name)
     
     return cmd
 

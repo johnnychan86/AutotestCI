@@ -11,62 +11,54 @@ import logging
 
 from utils import util
 
-logger = logging.getLogger('E')
-
 class Task(object):
     device_log_path = '/mnt/sdcard/autotest'
     
-    def __init__(self, param, time_stamp='', device):
+    def __init__(self, param):
         self.results = {}
         self.results['results'] = []
         self.param = param
-        self.time_stamp = time_stamp
-        self.device = device
+        self.time_stamp = param['time_stamp']
+        self.device = param['device']
+        self.log_path = "./logs/" + param['time_stamp']
+        self.log_path = util.get_path(self.log_path)
+        if not os.path.exists(self.log_path):
+            os.mkdir(self.log_path)
 
     def run(self):
-        print "Not implemented"
+        self.output = os.path.join(self.log_path, self.param['device'])
+        os.mkdir(self.output)
+
+    def pull_log(self, device, souce, dest):
+        cmd = '%s/ %s' % (souce, dest)
+        res =util.adb_runner(device, cmd, key_cmd='pull', timeout=120)
+        for r in res:
+            print r
 
 class RobotiumTask(Task):
-    device_log_path = '/mnt/sdcard/autotest'
-    device_crash = '/mnt/sdcard/crash'
-
     def __init__(self, param, time_stamp=''):
         Task.__init__(self, param, time_stamp)
-        self.log_path = util.get_path(
-            os.path.join('./logs/', time_stamp))
+        self.timeout = param['timeout']
 
     def clear_device_log(self, pth):
         res = util.adb_runner(self.param['device'], 'rm %s/*' % pth)
-        
-        if res[1]:
-            logger.error(res[1])
+        for r in res:
+            print r
 
     def pull_logcat(self, device, base_path, log):
         cmd = '%s/%s %s' % (
             self.device_log_path, log, os.path.join(base_path, log))
         res = util.adb_runner(device, cmd, key_cmd='pull')
-        if res[1]:
-            logger.error(res[1])
+        for r in res:
+            print r
 
-    def pull_crashlog(self, device, base_path, log):
-        cmd = '%s/%s %s' % (self.device_crash, 
-                            log, os.path.join(base_path, log))
-        util.adb_runner(device, cmd, key_cmd='pull')
-        
     def logcat(self, device, output):
         cmd = ("adb -s %s logcat -v threadtime -f %s/logcat.log -r 1024 -n 2" % 
                (device, output))
         proc = subprocess.Popen(cmd, shell=False)
         return proc
 
-    def run(self):
-        util.adb_runner(self.param['device'], 'mkdir %s' % self.device_log_path)
-        proc = None
-        if self.time_stamp:
-            output = os.path.join(self.log_path, self.param['device'])
-            os.mkdir(output)
-            proc = self.logcat(self.param['device'], self.device_log_path)
-
+    def test(self):
         for case in self.param['case']:
             cmd = util.make_instrument_cmd(
                 self.param["device"], case, self.param['target'])
@@ -75,7 +67,27 @@ class RobotiumTask(Task):
             self.results['results'].append({'case': case, 'result': r})
             time.sleep(2)
 
-        
+    def run(self):
+        Task.run()
+        util.adb_runner(self.param['device'], 'mkdir %s' % self.device_log_path)
+        proc = None
+        if self.time_stamp:
+            proc = self.logcat(self.param['device'], self.device_log_path)
+
+        start =time.time()
+        if self.timeout:
+            begin = time.time()
+            current = time.time()
+            while current < begin + self.timeout:
+                self.test()
+                current = time.time()
+        else:
+            self.test()
+
+        #TODO
+        #self.results['time_consum'] = time.time() - start
+        self.pull_log(self.param['device'], self.device_log_path, self.output)
+
         #pull logcat files
         if proc:
             proc.terminate()
@@ -94,16 +106,9 @@ class RobotiumTask(Task):
 
 
 class MonkeyTask(Task):    
-    def __init__(self, param, time_stamp, timeout=None):
-        Task.__init__(self, param, time_stamp)
-        self.time_stamp = time_stamp
-        self.timeout = timeout
-#         self.sdcard_detect()
-        
-        self.log_path = "./logs/" + time_stamp
-        self.log_path = util.get_path(self.log_path)
-        if not os.path.exists(self.log_path):
-            os.mkdir(self.log_path)
+    def __init__(self, param):
+        Task.__init__(self, param)
+        self.timeout = param['timeout']
             
     def sdcard_detect(self):
         cmd = 'ls %s' % self.device_log_path.replace('autotest', '')
@@ -121,25 +126,26 @@ class MonkeyTask(Task):
         
             
     def run(self):
-        output = os.path.join(self.log_path, self.param['device'])
-        os.mkdir(output)
+        Task.run()
         
         util.adb_runner(self.param['device'], 'mkdir %s' % self.device_log_path)
         self.clear_device_log()
         
         shell = util.make_monkey_shell(self.param['case'], self.param['device'],
                                self.device_log_path, self.param['target'])
-        #push shell to phone
+        #push shell to device
         self.push(self.param['device'], shell, '%s/monkey.sh' % self.device_log_path)
         
         start = time.time()
         out, err = util.adb_runner(self.param['device'], 
-                        '/system/bin/sh %s/monkey.sh' % self.device_log_path)
+                        '/system/bin/sh %s/monkey.sh' % self.device_log_path,
+                        timeout=self.timeout)
         
-        if err:
-            logger.error(err)
-        for i in range(len(self.param['case'])):
-            self.pull_log(self.param['device'], output, 'log_%s.log' % str(i))
+        #if err:
+        #    logger.error(err)
+        self.pull_log(self.param['device'], self.device_log_path, self.output)
+        #for i in range(len(self.param['case'])):
+        #    self.pull_log(self.param['device'], output, 'log_%s.log' % str(i))
             
         self.clear_device_log()
         self.results[self.param['device']] = time.time() - start

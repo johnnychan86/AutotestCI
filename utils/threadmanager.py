@@ -64,8 +64,11 @@ class Runner(Thread):
         while True:
             try:
                 task = self.work_q.get(timeout = Runner.timeout)
-                task.run()
-                self.result_q.put(task.results)
+                if self.device == task.device:
+                    task.run()
+                    self.result_q.put(task.results)
+                else:
+                    self.work_q.put(task)
             except Queue.Empty:
                 break
                 

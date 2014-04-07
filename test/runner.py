@@ -15,16 +15,69 @@ from utils import util
 import log_parser
 from utils.threadmanager import ThreadManager
 
-'''
-Data structure:
-{
-device: deviceid,
-case: [test_case, ...],
-target: target package,
-}
-'''
 
-logger = logging.getLogger("R")
+class MonkeyKeeper(object):
+    def __init__(self, devices):
+        self.devices = devices
+        self.params = []
+        self.results = []
+ 
+    def one_for_all(self, tp, cases, target, version, timeout=0):
+        if not self.devices:
+            print "No device available"
+            return
+
+        time_stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        for d in self.devices:
+            param = {'time_stamp': time_stamp,
+                     'type': tp,
+                     'device': d,
+                     'timeout': timeout,
+                     'cases': cases,
+                     'target': target,
+                     'version': version}
+            self.params.append(param)
+
+    def add_test(self, tp, device, cases, target, version, timeout=0):
+        time_stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        param = {'time_stamp': time_stamp,
+                 'type': tp,
+                 'device': device,
+                 'timeout': timeout,
+                 'cases': cases,
+                 'target': target,
+                 'version': version}
+        self.params.append(param)
+ 
+    def get_tests(self):
+        return self.params
+
+    def get_results(self):
+        return self.results
+
+    def start_test(self):
+        self.tm = ThreadManager(self.devices)
+        for param in self.params:
+            if param['type'] == 'monkey':
+                task = MonkeyTask(param)
+            elif param['type'] == 'robotium':
+                task = RobotiumTask(param)
+            self.tm.add_job(task)
+
+        self.tm.wait_for_complete()
+        self.results = self.tm.get_all_results()
+        self.save_results()
+
+    def save_results(self):
+        for x in self.results:
+            f = open(os.path.join(self.output, '%s.txt' % x['device']), 'a+')
+            f.write("Device: %s\n" % x['device'])
+            f.write("info: \n")
+            for r in x['results']:
+                f.write(r['case'] + '\n')
+                f.writelines(r['result'])
+                f.write('-' * 100 + '\n')
+            f.close()
 
 
 class Monkey(object):
@@ -90,10 +143,6 @@ class Robotium(object):
         self.test(param)
         self.save_results()
 
-    def clear_screeshots(self):
-        for device in self.devices:
-            util.adb_runner(device, 'rm /mnt/sdcard/Robotium-Screenshots/*')
-
     def test(self, param):
         base_path = util.get_path('./logs/robotium')
         time_stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
@@ -110,34 +159,5 @@ class Robotium(object):
         self.results = self.tm.get_all_results()
         return self.results
 
-    @staticmethod
-    def make_instrument_cmd(device, suite, pkg_name):
-        cs = '.'.join([pkg_name, suite])
-        cmd = "adb -s %s shell am instrument -e class %s \
-              -w %s/android.test.InstrumentationTestRunner" % \
-              (device, cs, pkg_name)
-
-        return cmd
-
-    def pull_pics(self, path):
-        pass
-
-    def save_results(self):
-        #f = open(os.path.join(pth, 'log_%s.txt' % self.current_case), 'a+')
-        for x in self.results:
-            sub_path = os.path.join(self.output, x['device'])
-            if not os.path.exists(sub_path):
-                os.makedirs(sub_path)
-            self.pull_pics(sub_path)
-
-            f = open(os.path.join(self.output, '%s.txt' % x['device']), 'a+')
-            f.write("Device: %s\n" % x['device'])
-            f.write("info: \n")
-            for r in x['results']:
-                f.write(r['case'] + '\n')
-                f.writelines(r['result'])
-                f.write('-' * 100 + '\n')
-            f.close()
-
 if __name__ == "__main__":
-    Robotium.save_results()
+    pass
