@@ -24,8 +24,7 @@ class Initializer(object):
         self.devices = util.load_devices()
         return self.devices
     
-    @staticmethod
-    def install_apk(package, devices, override=False):
+    def install_package(self, package, devices, override=False):
         logger.info("Installing package %s..." % package.pkg_name)
         failed = []
         for d in devices:
@@ -35,8 +34,7 @@ class Initializer(object):
                 
         return failed
    
-    @staticmethod
-    def uninstall_apk(package, devices):
+    def uninstall_package(self, package, devices):
         logger.info("Clearing old package...")
         for d in devices:
             package.uninstall(d)
@@ -44,11 +42,16 @@ class Initializer(object):
     def install_packages(self, devices, packages, clear=True):
         for pkg in packages:
             if clear:
-                Initializer.uninstall_apk(pkg, devices)
-                Initializer.install_apk(pkg, devices)
+                self.uninstall_package(pkg, devices)
+                self.install_package(pkg, devices)
             else:
-                Initializer.install_apk(pkg, devices, True)
+                self.install_package(pkg, devices, True)
                 
-    def process_login(self, case):
-        pass
+    def process_login(self, login_package, case):
+        self.uninstall_package(login_package)
+        self.install_package(login_package)
+
+        print("Prcessing login...")
+
+
     

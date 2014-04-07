@@ -21,15 +21,15 @@ class PackageError(Exception):
 
 class Apk(object):
 
-    def __init__(self, store_path, version=''):
+    def __init__(self, filename, version=''):
 
-        self.path = util.get_path(store_path)
-        self.package = '' 
+        self.filename = util.get_path('./packages/' + filename)
+        self.package_name = '' 
         self.activities = []
         if version:
             self.version = version
         else:
-            self.version = os.path.basename(self.path)
+            self.version = os.path.basename(self.filename)
         self.parse_manifest()
 
     def get_package_name(self, file_path):
@@ -44,8 +44,8 @@ class Apk(object):
         return True
 
     def install(self, device, override=False):
-        op = '-r' if override else ''
-        cmd = "adb -s %s install %s %s" % (device, op, self.path)
+        option = '-r' if override else ''
+        cmd = "adb -s %s install %s %s" % (device, option, self.filename)
         ret = os.popen(cmd).readlines()
 
         for line in ret:
@@ -61,8 +61,8 @@ class Apk(object):
         print output
 
         manifest = ''
-        if os.path.isfile(self.path):
-            zip = zipfile.ZipFile(self.path)
+        if os.path.isfile(self.filename):
+            zip = zipfile.ZipFile(self.filename)
             zip.extract('AndroidManifest.xml', output)
             manifest = os.path.join(output, 'AndroidManifest.xml')
         if os.path.isfile(manifest):
@@ -80,7 +80,7 @@ class Apk(object):
         tree = ET.parse(xml)
         root = tree.getroot()
         if "package" in root.attrib:
-            self.package = root.attrib['package']
+            self.package_name = root.attrib['package']
         
         app = root.find('application')
         for activity in app.findall('activity'):
