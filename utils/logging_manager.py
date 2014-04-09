@@ -15,7 +15,7 @@ def configure_logging(logging_config, **kwargs):
     logging_config.configure_logging(**kwargs)
 
 
-def get_logging_manager(manage_stdout_and_stderr=False, redirect_fds=False):
+def get_logging_manager(manage_stdout_and_stderr=False):
     """
     Create a LoggingManager that's managing sys.stdout and sys.stderr.
 
@@ -23,10 +23,7 @@ def get_logging_manager(manage_stdout_and_stderr=False, redirect_fds=False):
     LoggingManager to manage a stack of destinations should call this method
     at application startup.
     """
-    if redirect_fds:
-        manager = FdRedirectionLoggingManager()
-    else:
-        manager = LoggingManager()
+    manager = LoggingManager()
     if manage_stdout_and_stderr:
         manager.manage_stdout()
         manager.manage_stderr()
@@ -474,175 +471,5 @@ class LoggingManager(object):
         self.undo_redirect()
 
 
-class _FdRedirectionStreamManager(_StreamManager):
-    """
-    Like StreamManager, but also captures output from subprocesses by modifying
-    the underlying file descriptors.
-
-    For the underlying file descriptors, we spawn a subprocess that writes all
-    input to the logging module, and we point the FD to that subprocess.  As a
-    result, every time we redirect output we need to spawn a new subprocess to
-    pick up the new logging settings (without disturbing any existing processes
-    using the old logging subprocess).
-
-    If, one day, we could get all code using utils.run() and friends to launch
-    subprocesses, we'd no longer need to handle raw FD output, and we could
-    get rid of all this business with subprocesses.  Another option would be
-    to capture all stray output to a single, separate destination.
-    """
-    def __init__(self, stream, level, stream_setter):
-        if not hasattr(stream, 'fileno'):
-            # with fake, in-process file objects, subprocess output won't be
-            # captured. this should never happen in normal use, since the
-            # factory methods will only pass sys.stdout and sys.stderr.
-            raise ValueError("FdRedirectionLoggingManager won't work with "
-                             "streams that aren't backed by file "
-                             "descriptors")
-
-        super(_FdRedirectionStreamManager, self).__init__(stream, level,
-                                                          stream_setter)
-        self._fd = stream.fileno()
-        self._fd_copy_stream = None
 
 
-    def _point_stream_handlers_to_copy(self):
-        """
-        point logging StreamHandlers that point to this stream to a safe
-        copy of the underlying FD. otherwise, StreamHandler output will go
-        to the logging subprocess, effectively getting doubly logged.
-        """
-        fd_copy = os.dup(self._fd)
-        self._fd_copy_stream = os.fdopen(fd_copy, 'w')
-        self._redirect_logging_stream_handlers(self._stream,
-                                               self._fd_copy_stream)
-
-
-    def _restore_stream_handlers(self):
-        """ point logging StreamHandlers back to the original FD """
-        self._redirect_logging_stream_handlers(self._fd_copy_stream,
-                                               self._stream)
-        self._fd_copy_stream.close()
-
-
-    def _redirect_logging_stream_handlers(self, old_stream, new_stream):
-        """
-        Redirect all configured logging StreamHandlers pointing to
-        old_stream to point to new_stream instead.
-        """
-        for handler in _current_handlers():
-            points_to_stream = (isinstance(handler, logging.StreamHandler) and
-                                hasattr(handler.stream, 'fileno') and
-                                handler.stream.fileno() == old_stream.fileno())
-            if points_to_stream:
-                logger.removeHandler(handler)
-                handler.close() # doesn't close the stream, just the handler
-
-                new_handler = logging.StreamHandler(new_stream)
-                new_handler.setLevel(handler.level)
-                new_handler.setFormatter(handler.formatter)
-                for log_filter in handler.filters:
-                    new_handler.addFilter(log_filter)
-                logger.addHandler(new_handler)
-
-
-    def start_logging(self):
-        super(_FdRedirectionStreamManager, self).start_logging()
-        self._point_stream_handlers_to_copy()
-
-
-    def stop_logging(self):
-        super(_FdRedirectionStreamManager, self).stop_logging()
-        self._restore_stream_handlers()
-
-
-    def _spawn_logging_subprocess(self):
-        """
-        Spawn a subprocess to log all input to the logging module with the
-        current settings, and direct output to it.
-        """
-        read_end, write_end = os.pipe()
-        pid = os.fork()
-        if pid: # parent
-            os.close(read_end)
-            os.dup2(write_end, self._fd) # point FD to the subprocess
-            os.close(write_end)
-            return pid
-        else: # child
-            try:
-                os.close(write_end)
-                # ensure this subprocess doesn't hold any pipes to others
-                os.close(1)
-                os.close(2)
-                self._run_logging_subprocess(read_end) # never returns
-            except Exception:
-                # don't let exceptions in the child escape
-                try:
-                    logging.exception('Logging subprocess died:')
-                finally:
-                    os._exit(1)
-
-
-    def _run_logging_subprocess(self, read_fd):
-        """
-        Always run from a subprocess.  Read from read_fd and write to the
-        logging module until EOF.
-        """
-        signal.signal(signal.SIGTERM, signal.SIG_DFL) # clear handler
-        input_file = os.fdopen(read_fd, 'r')
-        for line in iter(input_file.readline, ''):
-            logging.log(self._level, line.rstrip('\n'))
-        os._exit(0)
-
-
-    def _context_id(self):
-        return '%s_context' % id(self)
-
-
-    def on_push_context(self, context):
-        # adds a context dict for this stream, $id_context, with the following:
-        # * old_fd: FD holding a copy of the managed FD before launching a new
-        #   subprocess.
-        # * child_pid: PID of the logging subprocess launched
-        fd_copy = os.dup(self._fd)
-        child_pid = self._spawn_logging_subprocess()
-        my_context = {'old_fd': fd_copy, 'child_pid': child_pid}
-        context[self._context_id()] = my_context
-
-
-    def on_restore_context(self, context):
-        my_context = context[self._context_id()]
-
-        # shut down subprocess
-        child_pid = my_context['child_pid']
-        try:
-            os.close(self._fd)
-            os.waitpid(child_pid, 0)
-        except OSError:
-            logging.exception('Failed to cleanly shutdown logging subprocess:')
-
-        # restore previous FD
-        old_fd = my_context['old_fd']
-        os.dup2(old_fd, self._fd)
-        os.close(old_fd)
-
-
-class FdRedirectionLoggingManager(LoggingManager):
-    """
-    A simple extension of LoggingManager to use FdRedirectionStreamManagers,
-    so that managed streams have their underlying FDs redirected.
-    """
-
-    STREAM_MANAGER_CLASS = _FdRedirectionStreamManager
-
-    def start_logging(self):
-        super(FdRedirectionLoggingManager, self).start_logging()
-        # spawn the initial logging subprocess
-        self._push_context(self._get_context())
-
-
-    def undo_redirect(self):
-        # len == 1 would mean only start_logging() had been called (but no
-        # redirects had occurred)
-        if len(self._context_stack) < 2:
-            raise RuntimeError('No redirects to undo')
-        super(FdRedirectionLoggingManager, self).undo_redirect()
