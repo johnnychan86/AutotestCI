@@ -16,7 +16,7 @@ import log_parser
 from utils.threadmanager import ThreadManager
 
 
-class MonkeyKeeper(object):
+class TaskManager(object):
     def __init__(self, devices):
         self.devices = devices
         self.params = []

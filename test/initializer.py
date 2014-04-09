@@ -10,7 +10,6 @@ import logging
 from utils import util
 from utils import logging_manager
 
-logger = logging.getLogger('R')
 
 class Initializer(object):
     def __init__(self):
@@ -51,7 +50,8 @@ class Initializer(object):
         self.uninstall_package(login_package)
         self.install_package(login_package)
 
-        print("Prcessing login...")
+        logging.info("Prcessing login...")
+        task_manager = TaskManager(util.load_devices())
 
 
     
