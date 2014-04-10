@@ -46,12 +46,18 @@ class Initializer(object):
             else:
                 self.install_package(pkg, devices, True)
                 
-    def process_login(self, login_package, case):
-        self.uninstall_package(login_package)
-        self.install_package(login_package)
+    def process_login(self, devices, login_package, case):
+        #self.uninstall_package(login_package)
+        #self.install_package(login_package)
 
         logging.info("Prcessing login...")
         task_manager = TaskManager(util.load_devices())
+
+        cases = [case]
+        task_manager.add_test('robotium', devices, cases,
+                login_package.package_name)
+
+        task_manager.start_test(log=False)
 
 
     

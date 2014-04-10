@@ -38,16 +38,17 @@ class TaskManager(object):
                      'version': version}
             self.params.append(param)
 
-    def add_test(self, tp, device, cases, target, version, timeout=0):
+    def add_test(self, tp, devices, cases, target, version='', timeout=0):
         time_stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        param = {'time_stamp': time_stamp,
-                 'type': tp,
-                 'device': device,
-                 'timeout': timeout,
-                 'cases': cases,
-                 'target': target,
-                 'version': version}
-        self.params.append(param)
+        for d in devices:
+            param = {'time_stamp': time_stamp,
+                     'type': tp,
+                     'device': device,
+                     'timeout': timeout,
+                     'cases': cases,
+                     'target': target,
+                     'version': version}
+            self.params.append(param)
  
     def get_tests(self):
         return self.params
@@ -55,13 +56,13 @@ class TaskManager(object):
     def get_results(self):
         return self.results
 
-    def start_test(self):
+    def start_test(self, log=True):
         self.tm = ThreadManager(self.devices)
         for param in self.params:
             if param['type'] == 'monkey':
                 task = MonkeyTask(param)
             elif param['type'] == 'robotium':
-                task = RobotiumTask(param)
+                task = RobotiumTask(param, log)
             self.tm.add_job(task)
 
         self.tm.wait_for_complete()

@@ -36,9 +36,12 @@ class Task(object):
             print r
 
 class RobotiumTask(Task):
-    def __init__(self, param, time_stamp=''):
+    device_logcat = '/mnt/sdcard/logcat'
+
+    def __init__(self, param, time_stamp='', log=True):
         Task.__init__(self, param, time_stamp)
         self.timeout = param['timeout']
+        self.log = log
 
     def clear_device_log(self, pth):
         res = util.adb_runner(self.param['device'], 'rm %s/*' % pth)
@@ -47,7 +50,7 @@ class RobotiumTask(Task):
 
     def pull_logcat(self, device, base_path, log):
         cmd = '%s/%s %s' % (
-            self.device_log_path, log, os.path.join(base_path, log))
+            self.device_logcat, log, os.path.join(base_path, log))
         res = util.adb_runner(device, cmd, key_cmd='pull')
         for r in res:
             print r
@@ -70,8 +73,9 @@ class RobotiumTask(Task):
     def run(self):
         Task.run()
         util.adb_runner(self.param['device'], 'mkdir %s' % self.device_log_path)
+        util.adb_runner(self.param['device'], 'mkdir %s' % self.device_logcat)
         proc = None
-        if self.time_stamp:
+        if self.time_stamp and self.log:
             proc = self.logcat(self.param['device'], self.device_log_path)
 
         start =time.time()
@@ -86,7 +90,8 @@ class RobotiumTask(Task):
 
         #TODO
         #self.results['time_consum'] = time.time() - start
-        self.pull_log(self.param['device'], self.device_log_path, self.output)
+        if self.log:
+            self.pull_log(self.param['device'], self.device_log_path, self.output)
 
         #pull logcat files
         if proc:
@@ -122,7 +127,7 @@ class MonkeyTask(Task):
         cmd = '%s %s' % (src, dest)
         res = util.adb_runner(device, cmd, key_cmd='push')
         if res[1]:
-            logger.error(res[1])
+            logging.error(res[1])
         
             
     def run(self):
@@ -148,5 +153,6 @@ class MonkeyTask(Task):
         #    self.pull_log(self.param['device'], output, 'log_%s.log' % str(i))
             
         self.clear_device_log()
+        #TODO
         self.results[self.param['device']] = time.time() - start
 
